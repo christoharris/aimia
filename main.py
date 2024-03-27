@@ -8,36 +8,53 @@ st.title('Symmetry')
 st.write('Upload an image and choose the type of symmetry')
 file = st.file_uploader('Enter Image', type=['jpg', 'png'])
 
-def square(upload):
-
+def reflective_symmetry(upload, num_reflections, reflect_mode):
     # initiate image variable
-    image1 = upload
+    image = upload
 
-    # flip image horizontally
-    image2 = image1.transpose(Image.FLIP_LEFT_RIGHT)
-    
-    # creates a canvas with dimensional integrity and stores into variable 'combined'
-    combined = Image.new("RGB", (image1.width + image2.width, image1.height))
+    if reflect_mode == 'Square':
+        # create the output image for square reflection
+        output_width = image.width * num_reflections
+        output_height = image.height * num_reflections
+        output_image = Image.new("RGB", (output_width, output_height))
 
-    # pastes the image into the canvas at the origin
-    combined.paste(image1, (0, 0))
+        # iterate over the reflections for square mode
+        for i in range(num_reflections):
+            for j in range(num_reflections):
+                # calculate the coordinates for pasting the image
+                paste_x = i * image.width
+                paste_y = j * image.height
 
-    # pastes the reflected image into the canvas
-    combined.paste(image2, (image1.width, 0))
+                # reflect the image based on the square pattern
+                if i % 2 == 1:
+                    image = image.transpose(Image.FLIP_LEFT_RIGHT)
+                if j % 2 == 1:
+                    image = image.transpose(Image.FLIP_TOP_BOTTOM)
 
-    # flips the canvas 'combined' and stores the vertical transformation into the variable flipped_combined
-    flipped_combined = combined.transpose(Image.FLIP_TOP_BOTTOM)
+                # paste the image onto the output image
+                output_image.paste(image, (paste_x, paste_y))
 
-    # creates a canvas for the vertical transformation and orignal combined variable to be pasted into
-    new_combined = Image.new("RGB", (combined.width, combined.height * 2))
+    else:
+        # create the output image for row reflection
+        output_width = image.width * num_reflections
+        output_height = image.height
+        output_image = Image.new("RGB", (output_width, output_height))
 
-    # Paste the original combined image at the top
-    new_combined.paste(combined, (0, 0))
+        # iterate over the reflections for row mode
+        for i in range(num_reflections):
+            # calculate the coordinates for pasting the image
+            paste_x = i * image.width
+            paste_y = 0
 
-    # Paste the vertical transformation at the bottom of new canvas, final four square product.
-    new_combined.paste(flipped_combined, (0, combined.height))
+            # reflect the image based on the row pattern
+            if i % 2 == 1:
+                image = image.transpose(Image.FLIP_LEFT_RIGHT)
 
-    return new_combined
+            # paste the image onto the output image
+            output_image.paste(image, (paste_x, paste_y))
+
+    return output_image
+
 
 def radial(upload, num_segments):
     # initiate image variable
@@ -72,40 +89,6 @@ def radial(upload, num_segments):
     return output_image
 
 
-def distort_symmetry(upload, distortion_level):
-    # initiate image variable
-    image = upload.convert("RGBA")
-
-    # apply distortion to the image
-    distorted_images = []
-    for i in range(int(distortion_level)):
-        distorted_image = image.copy()
-        distorted_image = distorted_image.resize((int(distorted_image.width * (1 - i * 0.1)), int(distorted_image.height * (1 - i * 0.1))))
-        distorted_image = distorted_image.resize(image.size, Image.LANCZOS)
-        distorted_images.append(distorted_image)
-
-    # create a mask for the distorted image
-    mask = Image.new("L", image.size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.ellipse((0, 0, image.width, image.height), fill=255)
-
-    # create the output image
-    output_image = Image.new("RGBA", image.size)
-
-    # paste the distorted images and their mirrored versions
-    for i, distorted_image in enumerate(distorted_images):
-        # apply the mask to the distorted image
-        distorted_image.putalpha(mask)
-
-        # create a mirrored version of the distorted image
-        mirrored_image = ImageOps.mirror(distorted_image)
-
-        # calculate the positions to paste the images
-        offset = i * (image.width // (2 * distortion_level))
-        output_image.paste(distorted_image, (offset, 0), distorted_image)
-        output_image.paste(mirrored_image, (image.width - offset - distorted_image.width, 0), mirrored_image)
-
-    return output_image
 
 def circular_symmetry(upload, num_rectangles):
     # initiate image variable
@@ -204,30 +187,200 @@ def triangular_symmetry(upload, num_triangles):
 
     return output_image
 
+
+def dilation_symmetry(upload, num_rectangles, dilation_factor):
+    # initiate image variable
+    image = upload.convert("RGBA")
+
+    # calculate the size of each rectangle
+    rect_width = image.width // num_rectangles
+    rect_height = image.height
+
+    # create the output image
+    output_size = int(max(image.width, image.height) * dilation_factor)
+    output_image = Image.new("RGBA", (output_size, output_size))
+
+    # calculate the center of the output image
+    center_x = output_size // 2
+    center_y = output_size // 2
+
+    # iterate over the rectangles and apply dilation
+    for i in range(num_rectangles):
+        # calculate the coordinates of the current rectangle
+        left = i * rect_width
+        top = 0
+        right = left + rect_width
+        bottom = rect_height
+
+        # crop the rectangle from the input image
+        rect_image = image.crop((left, top, right, bottom))
+
+        # calculate the dilation size for the current rectangle
+        dilation_size = int(rect_width * dilation_factor)
+
+        # resize the rectangle based on the dilation size
+        dilated_rect = rect_image.resize((dilation_size, rect_height), Image.ANTIALIAS)
+
+        # calculate the position to paste the dilated rectangle
+        offset_x = center_x - (i + 0.5) * dilation_size
+        offset_y = center_y - rect_height // 2
+
+        # paste the dilated rectangle onto the output image
+        output_image.paste(dilated_rect, (int(offset_x), offset_y), dilated_rect)
+
+    return output_image
+
+def mesh_symmetry(upload, num_rectangles):
+    # initiate image variable
+    image = upload.convert("RGBA")
+
+    # calculate the size of each rectangle based on the image dimensions
+    rect_width = image.width // num_rectangles
+    rect_height = image.height // num_rectangles
+
+    # create the output image with the same size as the input image
+    output_image = Image.new("RGBA", (image.width, image.height))
+
+    # iterate over the rectangles and rotate them
+    for i in range(num_rectangles):
+        for j in range(num_rectangles):
+            # calculate the coordinates of the current rectangle
+            left = i * rect_width
+            top = j * rect_height
+            right = left + rect_width
+            bottom = top + rect_height
+
+            # crop the rectangle from the input image
+            rect_image = image.crop((left, top, right, bottom))
+
+            # calculate the rotation angle for the current rectangle
+            angle = (i * num_rectangles + j) * (360 / (num_rectangles ** 2))
+
+            # rotate the rectangle
+            rotated_rect = rect_image.rotate(angle, expand=True)
+
+            # calculate the position to paste the rotated rectangle
+            paste_left = left + (rect_width - rotated_rect.width) // 2
+            paste_top = top + (rect_height - rotated_rect.height) // 2
+
+            # paste the rotated rectangle onto the output image
+            output_image.paste(rotated_rect, (paste_left, paste_top), rotated_rect)
+
+    return output_image
+
+def spiral_symmetry(upload, num_rotations, scale_factor):
+    # initiate image variable
+    image = upload.convert("RGBA")
+
+    # create the output image
+    output_size = max(image.width, image.height)
+    output_image = Image.new("RGBA", (output_size, output_size))
+
+    # calculate the center of the output image
+    center_x = output_size // 2
+    center_y = output_size // 2
+
+    # calculate the angle increment for each rotation
+    angle_increment = 360 / num_rotations
+
+    # iterate over the rotations
+    for i in range(num_rotations):
+        # calculate the current angle
+        angle = i * angle_increment
+
+        # calculate the scale factor for the current rotation
+        scale = 1 - (i / num_rotations) * (1 - scale_factor)
+
+        # rotate and scale the image
+        rotated_image = image.rotate(angle, expand=True)
+        scaled_image = rotated_image.resize((int(rotated_image.width * scale), int(rotated_image.height * scale)))
+
+        # calculate the position to paste the scaled image
+        paste_x = center_x - scaled_image.width // 2
+        paste_y = center_y - scaled_image.height // 2
+
+        # paste the scaled image onto the output image
+        output_image.paste(scaled_image, (paste_x, paste_y), scaled_image)
+
+    return output_image
 # ... (previous code remains the same)
+
 
 if file is not None:
     image = Image.open(file)
     st.image(image, caption='Uploaded Image', use_column_width=True)
+    
+    # store the uploaded image in the session state
+    st.session_state.uploaded_image = image
 
+# check if there is a transformed image in the session state
+if 'transformed_image' in st.session_state:
+    # display the transformed image
+    st.image(st.session_state.transformed_image, caption='Transformed Image', use_column_width=True)
+    
+    # provide a button to re-enter the transformed image
+    if st.button('Re-enter Transformed Image'):
+        st.session_state.uploaded_image = st.session_state.transformed_image
+
+# check if there is an uploaded image in the session state
+if 'uploaded_image' in st.session_state:
     # symmetry type selection
-    symmetry_type = st.selectbox('Select Symmetry Type', ('Reflective', 'Radial', 'Distort', 'Circular', 'Triangular'))
+    symmetry_type = st.selectbox('Select Symmetry Type', ('Reflective', 'Circular', 'Triangular', 'Dilation', 'Mesh', 'Spiral'))
 
     if symmetry_type == 'Reflective':
-        result_image = square(image)
-    elif symmetry_type == 'Radial':
-        num_segments = st.slider('Number of Segments', min_value=2, max_value=12, value=6)
-        result_image = radial(image, num_segments)
-    elif symmetry_type == 'Distort':
-        distortion_level = st.slider('Distortion Level', min_value=1, max_value=10, value=1, step=1)
-        result_image = distort_symmetry(image, distortion_level)
+        num_reflections = st.slider('Number of Reflections', min_value=1, max_value=10, value=2, step=1)
+        reflect_mode = st.radio('Reflection Mode', ('Square', 'Row'))
+        result_image = reflective_symmetry(st.session_state.uploaded_image, num_reflections, reflect_mode)
     elif symmetry_type == 'Circular':
-        gcd_value = math.gcd(image.width, image.height)
-        max_factor = 10
-        num_rectangles = st.slider('Number of Rectangles', min_value=2, max_value=1000, value=min(10, gcd_value), step=gcd_value)
-        result_image = circular_symmetry(image, num_rectangles)
+        num_rectangles = st.slider('Number of Rectangles', min_value=2, max_value=500, value=10, step=1)
+        result_image = circular_symmetry(st.session_state.uploaded_image, num_rectangles)
+        
+        # add a button to output half of the circular symmetry image
+        if st.button('Output Half'):
+            half_width = result_image.width // 2
+            half_height = result_image.height
+            half_image = result_image.crop((0, 0, half_width, half_height))
+            st.image(half_image, caption='Half Circular Symmetry', use_column_width=True)
+        
+        # add a button to output a squared image from the center of the circular symmetry
+        if st.button('Output Square'):
+            radius = min(result_image.width, result_image.height) // 2
+            square_size = radius // 2
+            center_x = result_image.width // 2
+            center_y = result_image.height // 2
+            left = center_x - square_size // 2
+            top = center_y - square_size // 2
+            right = left + square_size
+            bottom = top + square_size
+            square_image = result_image.crop((left, top, right, bottom))
+            st.image(square_image, caption='Squared Circular Symmetry', use_column_width=True)
+    
+    elif symmetry_type == 'Triangular':
+        num_triangles = st.slider('Number of Triangles', min_value=2, max_value=500, value=3, step=1)
+        result_image = triangular_symmetry(st.session_state.uploaded_image, num_triangles)
+    elif symmetry_type == 'Dilation':
+        num_rectangles = st.slider('Number of Rectangles', min_value=2, max_value=500, value=4, step=1)
+        dilation_factor = st.slider('Dilation Factor', min_value=1.0, max_value=5.0, value=2.0, step=0.1)
+        result_image = dilation_symmetry(st.session_state.uploaded_image, num_rectangles, dilation_factor)
+    elif symmetry_type == 'Mesh':
+        num_rectangles = st.slider('Number of Rectangles', min_value=2, max_value=500, value=10, step=1)
+        result_image = mesh_symmetry(st.session_state.uploaded_image, num_rectangles)
     else:
-        num_triangles = st.slider('Number of Triangles', min_value=2, max_value=690, value=3, step=1)
-        result_image = triangular_symmetry(image, num_triangles)
-
+        num_rotations = st.slider('Number of Rotations', min_value=1, max_value=100, value=10, step=1)
+        scale_factor = st.slider('Scale Factor', min_value=0.1, max_value=1.0, value=0.9, step=0.1)
+        result_image = spiral_symmetry(st.session_state.uploaded_image, num_rotations, scale_factor)
+    
     st.image(result_image, caption='Symmetry Result', use_column_width=True)
+    
+    # add a button to output a squared image from the center of the symmetry result
+    if st.button('Output Square'):
+        square_size = min(result_image.width, result_image.height)
+        left = (result_image.width - square_size) // 2
+        top = (result_image.height - square_size) // 2
+        right = left + square_size
+        bottom = top + square_size
+        square_image = result_image.crop((left, top, right, bottom))
+        st.image(square_image, caption='Squared Symmetry Result', use_column_width=True)
+    
+    # store the transformed image in the session state
+    st.session_state.transformed_image = result_image
