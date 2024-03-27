@@ -367,7 +367,7 @@ if 'uploaded_image' in st.session_state:
         result_image = mesh_symmetry(st.session_state.uploaded_image, num_rectangles)
     else:
         num_rotations = st.slider('Number of Rotations', min_value=1, max_value=100, value=10, step=1)
-        scale_factor = st.slider('Scale Factor', min_value=0.1, max_value=1.0, value=0.9, step=0.1)
+        scale_factor = st.slider('Scale Factor', min_value=0.001, max_value=1.0, value=0.01, step=0.01)
         result_image = spiral_symmetry(st.session_state.uploaded_image, num_rotations, scale_factor)
     
     st.image(result_image, caption='Symmetry Result', use_column_width=True)
