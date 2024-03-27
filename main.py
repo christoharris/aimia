@@ -227,7 +227,7 @@ if file is not None:
         num_rectangles = st.slider('Number of Rectangles', min_value=2, max_value=1000, value=min(10, gcd_value), step=gcd_value)
         result_image = circular_symmetry(image, num_rectangles)
     else:
-        num_triangles = st.slider('Number of Triangles', min_value=2, max_value=1000, value=3, step=1)
+        num_triangles = st.slider('Number of Triangles', min_value=2, max_value=690, value=3, step=1)
         result_image = triangular_symmetry(image, num_triangles)
 
     st.image(result_image, caption='Symmetry Result', use_column_width=True)
