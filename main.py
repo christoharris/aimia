@@ -14,47 +14,47 @@ def reflective_symmetry(upload, num_reflections, reflect_mode):
 
     if reflect_mode == 'Square':
         # create the output image for square reflection
-        output_width = image.width * num_reflections
-        output_height = image.height * num_reflections
+        output_width = image.width * 2
+        output_height = image.height * 2
         output_image = Image.new("RGB", (output_width, output_height))
 
-        # iterate over the reflections for square mode
-        for i in range(num_reflections):
-            for j in range(num_reflections):
-                # calculate the coordinates for pasting the image
-                paste_x = i * image.width
-                paste_y = j * image.height
+        # paste the original image in the top-left quadrant
+        output_image.paste(image, (0, 0))
 
-                # reflect the image based on the square pattern
-                if i % 2 == 1:
-                    image = image.transpose(Image.FLIP_LEFT_RIGHT)
-                if j % 2 == 1:
-                    image = image.transpose(Image.FLIP_TOP_BOTTOM)
+        # reflect the image horizontally and paste in the top-right quadrant
+        reflection_h = image.transpose(Image.FLIP_LEFT_RIGHT)
+        output_image.paste(reflection_h, (image.width, 0))
 
-                # paste the image onto the output image
-                output_image.paste(image, (paste_x, paste_y))
+        # reflect the image vertically and paste in the bottom-left quadrant
+        reflection_v = image.transpose(Image.FLIP_TOP_BOTTOM)
+        output_image.paste(reflection_v, (0, image.height))
+
+        # reflect the image both horizontally and vertically and paste in the bottom-right quadrant
+        reflection_hv = reflection_h.transpose(Image.FLIP_TOP_BOTTOM)
+        output_image.paste(reflection_hv, (image.width, image.height))
+
+        # apply the reflections multiple times based on the num_reflections slider
+        for _ in range(num_reflections - 1):
+            output_image = reflective_symmetry(output_image, 1, 'Square')
 
     else:
         # create the output image for row reflection
-        output_width = image.width * num_reflections
+        output_width = image.width * 2
         output_height = image.height
         output_image = Image.new("RGB", (output_width, output_height))
 
-        # iterate over the reflections for row mode
-        for i in range(num_reflections):
-            # calculate the coordinates for pasting the image
-            paste_x = i * image.width
-            paste_y = 0
+        # paste the original image on the left side
+        output_image.paste(image, (0, 0))
 
-            # reflect the image based on the row pattern
-            if i % 2 == 1:
-                image = image.transpose(Image.FLIP_LEFT_RIGHT)
+        # reflect the image horizontally and paste on the right side
+        reflection = image.transpose(Image.FLIP_LEFT_RIGHT)
+        output_image.paste(reflection, (image.width, 0))
 
-            # paste the image onto the output image
-            output_image.paste(image, (paste_x, paste_y))
+        # apply the reflections multiple times based on the num_reflections slider
+        for _ in range(num_reflections - 1):
+            output_image = reflective_symmetry(output_image, 1, 'Row')
 
     return output_image
-
 
 def radial(upload, num_segments):
     # initiate image variable
@@ -304,7 +304,36 @@ def spiral_symmetry(upload, num_rotations, scale_factor):
 
     return output_image
 # ... (previous code remains the same)
+def kaleidoscope_symmetry(upload, num_segments):
+    # initiate image variable
+    image = upload.convert("RGBA")
 
+    # create the output image
+    output_size = max(image.width, image.height)
+    output_image = Image.new("RGBA", (output_size, output_size))
+
+    # calculate the angle increment for each segment
+    angle_increment = 360 / num_segments
+
+    # iterate over the segments
+    for i in range(num_segments):
+        # calculate the rotation angle for the current segment
+        angle = i * angle_increment
+
+        # rotate the image
+        rotated_image = image.rotate(angle, expand=True)
+
+        # create a mirrored version of the rotated image
+        mirrored_image = ImageOps.mirror(rotated_image)
+
+        # calculate the position to paste the mirrored image
+        paste_x = (output_size - mirrored_image.width) // 2
+        paste_y = (output_size - mirrored_image.height) // 2
+
+        # paste the mirrored image onto the output image
+        output_image.paste(mirrored_image, (paste_x, paste_y), mirrored_image)
+
+    return output_image
 
 if file is not None:
     image = Image.open(file)
@@ -323,9 +352,10 @@ if 'transformed_image' in st.session_state:
         st.session_state.uploaded_image = st.session_state.transformed_image
 
 # check if there is an uploaded image in the session state
+
 if 'uploaded_image' in st.session_state:
     # symmetry type selection
-    symmetry_type = st.selectbox('Select Symmetry Type', ('Reflective', 'Circular', 'Triangular', 'Dilation', 'Mesh', 'Spiral'))
+    symmetry_type = st.selectbox('Select Symmetry Type', ('Reflective', 'Circular', 'Triangular', 'Dilation', 'Mesh', 'Spiral', 'Kaleidoscope'))
 
     if symmetry_type == 'Reflective':
         num_reflections = st.slider('Number of Reflections', min_value=1, max_value=10, value=2, step=1)
@@ -334,27 +364,6 @@ if 'uploaded_image' in st.session_state:
     elif symmetry_type == 'Circular':
         num_rectangles = st.slider('Number of Rectangles', min_value=2, max_value=500, value=10, step=1)
         result_image = circular_symmetry(st.session_state.uploaded_image, num_rectangles)
-        
-        # add a button to output half of the circular symmetry image
-        if st.button('Output Half'):
-            half_width = result_image.width // 2
-            half_height = result_image.height
-            half_image = result_image.crop((0, 0, half_width, half_height))
-            st.image(half_image, caption='Half Circular Symmetry', use_column_width=True)
-        
-        # add a button to output a squared image from the center of the circular symmetry
-        if st.button('Output Square'):
-            radius = min(result_image.width, result_image.height) // 2
-            square_size = radius // 2
-            center_x = result_image.width // 2
-            center_y = result_image.height // 2
-            left = center_x - square_size // 2
-            top = center_y - square_size // 2
-            right = left + square_size
-            bottom = top + square_size
-            square_image = result_image.crop((left, top, right, bottom))
-            st.image(square_image, caption='Squared Circular Symmetry', use_column_width=True)
-    
     elif symmetry_type == 'Triangular':
         num_triangles = st.slider('Number of Triangles', min_value=2, max_value=500, value=3, step=1)
         result_image = triangular_symmetry(st.session_state.uploaded_image, num_triangles)
@@ -365,22 +374,22 @@ if 'uploaded_image' in st.session_state:
     elif symmetry_type == 'Mesh':
         num_rectangles = st.slider('Number of Rectangles', min_value=2, max_value=500, value=10, step=1)
         result_image = mesh_symmetry(st.session_state.uploaded_image, num_rectangles)
-    else:
-        num_rotations = st.slider('Number of Rotations', min_value=1, max_value=100, value=10, step=1)
+    elif symmetry_type == 'Spiral':
+        num_rotations = st.slider('Number of Rotations', min_value=1, max_value=100, value=50, step=1)
         scale_factor = st.slider('Scale Factor', min_value=0.001, max_value=1.0, value=0.01, step=0.01)
         result_image = spiral_symmetry(st.session_state.uploaded_image, num_rotations, scale_factor)
+    else:
+        num_segments = st.slider('Number of Segments', min_value=2, max_value=36, value=8, step=1)
+        result_image = kaleidoscope_symmetry(st.session_state.uploaded_image, num_segments)
     
     st.image(result_image, caption='Symmetry Result', use_column_width=True)
     
-    # add a button to output a squared image from the center of the symmetry result
-    if st.button('Output Square'):
-        square_size = min(result_image.width, result_image.height)
-        left = (result_image.width - square_size) // 2
-        top = (result_image.height - square_size) // 2
-        right = left + square_size
-        bottom = top + square_size
-        square_image = result_image.crop((left, top, right, bottom))
-        st.image(square_image, caption='Squared Symmetry Result', use_column_width=True)
+    # add a button to output half of the symmetry result
+    if st.button('Output Half'):
+        half_width = result_image.width // 2
+        half_height = result_image.height
+        half_image = result_image.crop((0, 0, half_width, half_height))
+        st.image(half_image, caption='Half Symmetry Result', use_column_width=True)
     
     # store the transformed image in the session state
     st.session_state.transformed_image = result_image
